@@ -1,7 +1,7 @@
 FROM node:24-alpine AS builder
 
 RUN apk update && \
-    apk add --no-cache git ffmpeg wget curl bash openssl
+    apk add --no-cache git ffmpeg wget curl bash openssl dos2unix
 
 LABEL version="2.3.1" description="Api to control whatsapp features through http requests." 
 LABEL maintainer="Davidson Gomes" git="https://github.com/DavidsonGomes"
@@ -22,12 +22,18 @@ COPY ./manager ./manager
 COPY ./runWithProvider.js ./
 
 COPY ./Docker ./Docker
-
 RUN chmod +x ./Docker/scripts/* && dos2unix ./Docker/scripts/*
 
+# Gera pastas de migrations para o provider selecionado
 RUN ./Docker/scripts/generate_database.sh
 
+# Compila o projeto
 RUN npm run build
+
+
+#############################
+# FINAL IMAGE
+#############################
 
 FROM node:24-alpine AS final
 
@@ -47,12 +53,13 @@ COPY --from=builder /evolution/dist ./dist
 COPY --from=builder /evolution/prisma ./prisma
 COPY --from=builder /evolution/manager ./manager
 COPY --from=builder /evolution/public ./public
-COPY --from=builder /evolution/.env ./.env
 COPY --from=builder /evolution/Docker ./Docker
 COPY --from=builder /evolution/runWithProvider.js ./runWithProvider.js
 COPY --from=builder /evolution/tsup.config.ts ./tsup.config.ts
 
-ENV DOCKER_ENV=true
+# ⚠️ IMPORTANTE
+# NÃO copiamos .env para dentro da imagem.
+# O Dokploy injeta as env vars corretas.
 
 EXPOSE 8080
 
